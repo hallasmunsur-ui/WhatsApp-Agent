@@ -81,9 +81,12 @@ export async function transcribeAudio(buffer: Buffer, mimeType: string): Promise
   const ext = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "m4a" : "mp3";
   const file = await toFile(buffer, `voice.${ext}`);
 
+  // The "turbo" variant frequently mis-transcribes lower-resource languages
+  // like Bengali into the wrong script (e.g. Devanagari/Gujarati). The full
+  // v3 model reliably picks the correct script.
   const transcription = await groq.audio.transcriptions.create({
     file,
-    model: "whisper-large-v3-turbo",
+    model: "whisper-large-v3",
   });
 
   return transcription.text.trim();
