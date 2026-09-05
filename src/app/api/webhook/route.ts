@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { downloadWhatsAppMedia, sendWhatsAppMessage } from "@/lib/whatsapp";
 import { describeImage, generateReply, transcribeAudio } from "@/lib/ai";
+import { uploadMedia } from "@/lib/storage";
 import type { Message } from "@/lib/types";
 
 const SUPPORTED_MESSAGE_TYPES = ["text", "image", "audio"];
@@ -77,21 +78,33 @@ async function processWebhookPayload(payload: WebhookPayload) {
   }
 }
 
-async function resolveMessageContent(waMessage: WhatsAppTextMessage): Promise<string> {
+interface ResolvedContent {
+  content: string;
+  mediaPath?: string;
+  mediaType?: "image" | "audio";
+}
+
+async function resolveMessageContent(waMessage: WhatsAppTextMessage): Promise<ResolvedContent> {
   if (waMessage.type === "text") {
-    return waMessage.text?.body ?? "";
+    return { content: waMessage.text?.body ?? "" };
   }
 
   if (waMessage.type === "image" && waMessage.image) {
     const { buffer, mimeType } = await downloadWhatsAppMedia(waMessage.image.id);
-    const description = await describeImage(buffer, mimeType, waMessage.image.caption ?? null);
-    return `[Image] ${description}`;
+    const [description, mediaPath] = await Promise.all([
+      describeImage(buffer, mimeType, waMessage.image.caption ?? null),
+      uploadMedia(buffer, mimeType, waMessage.id),
+    ]);
+    return { content: `[Image] ${description}`, mediaPath, mediaType: "image" };
   }
 
   if (waMessage.type === "audio" && waMessage.audio) {
     const { buffer, mimeType } = await downloadWhatsAppMedia(waMessage.audio.id);
-    const transcript = await transcribeAudio(buffer, mimeType);
-    return `[Voice message] ${transcript}`;
+    const [transcript, mediaPath] = await Promise.all([
+      transcribeAudio(buffer, mimeType),
+      uploadMedia(buffer, mimeType, waMessage.id),
+    ]);
+    return { content: `[Voice message] ${transcript}`, mediaPath, mediaType: "audio" };
   }
 
   throw new Error(`Unhandled message type: ${waMessage.type}`);
@@ -107,15 +120,17 @@ async function handleIncomingMessage(
   const whatsappMsgId = waMessage.id;
   const name = contact?.profile?.name ?? null;
 
-  let content: string;
+  let resolved: ResolvedContent;
   try {
-    content = await resolveMessageContent(waMessage);
+    resolved = await resolveMessageContent(waMessage);
   } catch (err) {
     console.error("Failed to process incoming media:", err);
-    content =
-      waMessage.type === "audio"
-        ? "[Voice message could not be transcribed]"
-        : "[Image could not be processed]";
+    resolved = {
+      content:
+        waMessage.type === "audio"
+          ? "[Voice message could not be transcribed]"
+          : "[Image could not be processed]",
+    };
   }
 
   const conversation = await findOrCreateConversation(phone, name);
@@ -123,8 +138,10 @@ async function handleIncomingMessage(
   const { error: insertError } = await supabaseServer.from("messages").insert({
     conversation_id: conversation.id,
     role: "user",
-    content,
+    content: resolved.content,
     whatsapp_msg_id: whatsappMsgId,
+    media_path: resolved.mediaPath ?? null,
+    media_type: resolved.mediaType ?? null,
   });
 
   // Unique constraint violation means Meta retried a message we already

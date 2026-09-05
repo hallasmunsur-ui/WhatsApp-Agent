@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
+import { getMediaSignedUrl } from "@/lib/storage";
+import type { Message } from "@/lib/types";
 
 export async function GET(
   _req: NextRequest,
@@ -17,5 +19,12 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json(data);
+  const messages = await Promise.all(
+    ((data ?? []) as (Message & { media_path: string | null })[]).map(async (message) => ({
+      ...message,
+      media_url: message.media_path ? await getMediaSignedUrl(message.media_path) : null,
+    }))
+  );
+
+  return NextResponse.json(messages);
 }

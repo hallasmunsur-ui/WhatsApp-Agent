@@ -80,6 +80,16 @@ export function ChatPanel({
                     : "bg-green-600 text-white"
                 }`}
               >
+                {message.media_type === "image" && message.media_url && (
+                  <img
+                    src={message.media_url}
+                    alt="Attachment"
+                    className="mb-2 max-h-64 rounded-lg"
+                  />
+                )}
+                {message.media_type === "audio" && message.media_url && (
+                  <audio controls src={message.media_url} className="mb-2 w-64" />
+                )}
                 <p className="whitespace-pre-wrap">{message.content}</p>
                 <div
                   className={`mt-1 text-[10px] ${
