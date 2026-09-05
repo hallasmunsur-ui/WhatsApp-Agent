@@ -80,6 +80,16 @@ export default function DashboardPage() {
     loadConversations();
   }
 
+  async function handleTagsChange(tags: string[]) {
+    if (!selectedId) return;
+    await fetch(`/api/conversations/${selectedId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tags }),
+    });
+    loadConversations();
+  }
+
   async function handleSend(content: string) {
     if (!selectedId) return;
     await fetch(`/api/conversations/${selectedId}/send`, {
@@ -104,6 +114,7 @@ export default function DashboardPage() {
           conversation={selectedConversation}
           messages={messages}
           onModeChange={handleModeChange}
+          onTagsChange={handleTagsChange}
           onSend={handleSend}
         />
       ) : (

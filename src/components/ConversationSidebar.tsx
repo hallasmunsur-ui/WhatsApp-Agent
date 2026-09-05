@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ConversationWithLastMessage } from "@/lib/types";
 
 function formatTime(iso: string) {
@@ -23,10 +24,16 @@ export function ConversationSidebar({
 }) {
   return (
     <div className="flex h-full w-80 shrink-0 flex-col border-r border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
-      <div className="border-b border-neutral-200 px-4 py-4 dark:border-neutral-800">
+      <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-4 dark:border-neutral-800">
         <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
           Conversations
         </h1>
+        <Link
+          href="/knowledge-base"
+          className="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+        >
+          Knowledge Base
+        </Link>
       </div>
       <div className="flex-1 overflow-y-auto">
         {conversations.length === 0 && (
@@ -72,6 +79,18 @@ export function ConversationSidebar({
                   {conversation.mode}
                 </span>
               </div>
+              {conversation.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {conversation.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
             </button>
           );
         })}

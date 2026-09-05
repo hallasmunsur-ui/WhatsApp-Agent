@@ -5,6 +5,7 @@ export interface Conversation {
   phone: string;
   name: string | null;
   mode: ConversationMode;
+  tags: string[];
   updated_at: string;
   created_at: string;
 }

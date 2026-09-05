@@ -7,16 +7,33 @@ export function ChatPanel({
   conversation,
   messages,
   onModeChange,
+  onTagsChange,
   onSend,
 }: {
   conversation: Conversation;
   messages: Message[];
   onModeChange: (mode: ConversationMode) => void;
+  onTagsChange: (tags: string[]) => void;
   onSend: (content: string) => Promise<void>;
 }) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [tagDraft, setTagDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  function addTag() {
+    const tag = tagDraft.trim();
+    if (!tag || conversation.tags.includes(tag)) {
+      setTagDraft("");
+      return;
+    }
+    onTagsChange([...conversation.tags, tag]);
+    setTagDraft("");
+  }
+
+  function removeTag(tag: string) {
+    onTagsChange(conversation.tags.filter((t) => t !== tag));
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -39,29 +56,61 @@ export function ChatPanel({
 
   return (
     <div className="flex h-full flex-1 flex-col bg-neutral-50 dark:bg-neutral-900">
-      <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4 dark:border-neutral-800 dark:bg-neutral-950">
-        <div>
-          <h2 className="font-semibold text-neutral-900 dark:text-neutral-100">
-            {conversation.name || conversation.phone}
-          </h2>
-          <p className="text-sm text-neutral-500">{conversation.phone}</p>
+      <div className="border-b border-neutral-200 bg-white px-6 py-4 dark:border-neutral-800 dark:bg-neutral-950">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-neutral-900 dark:text-neutral-100">
+              {conversation.name || conversation.phone}
+            </h2>
+            <p className="text-sm text-neutral-500">{conversation.phone}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-medium uppercase tracking-wide ${
+                isHuman
+                  ? "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300"
+                  : "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+              }`}
+            >
+              {conversation.mode}
+            </span>
+            <button
+              onClick={() => onModeChange(isHuman ? "agent" : "human")}
+              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              Switch to {isHuman ? "Agent" : "Human"}
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-medium uppercase tracking-wide ${
-              isHuman
-                ? "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300"
-                : "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
-            }`}
-          >
-            {conversation.mode}
-          </span>
-          <button
-            onClick={() => onModeChange(isHuman ? "agent" : "human")}
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-          >
-            Switch to {isHuman ? "Agent" : "Human"}
-          </button>
+
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {conversation.tags.map((tag) => (
+            <span
+              key={tag}
+              className="flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 text-xs text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+            >
+              {tag}
+              <button
+                onClick={() => removeTag(tag)}
+                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-100"
+                aria-label={`Remove tag ${tag}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <input
+            value={tagDraft}
+            onChange={(e) => setTagDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addTag();
+              }
+            }}
+            placeholder="+ tag"
+            className="w-20 rounded-full border border-dashed border-neutral-300 bg-transparent px-2.5 py-1 text-xs outline-none focus:border-neutral-400 dark:border-neutral-700"
+          />
         </div>
       </div>
 

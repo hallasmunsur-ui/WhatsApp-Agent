@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { downloadWhatsAppMedia, sendWhatsAppMessage } from "@/lib/whatsapp";
@@ -45,8 +46,38 @@ export async function GET(req: NextRequest) {
   return new NextResponse("Forbidden", { status: 403 });
 }
 
+// Verifies Meta's X-Hub-Signature-256 header so only genuine WhatsApp
+// webhook calls are processed. If WHATSAPP_APP_SECRET isn't set yet, this
+// skips verification (with a warning) rather than breaking the live bot.
+function isValidSignature(rawBody: string, signatureHeader: string | null): boolean {
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+
+  if (!appSecret) {
+    console.warn("WHATSAPP_APP_SECRET is not set — skipping webhook signature verification.");
+    return true;
+  }
+
+  if (!signatureHeader) return false;
+
+  const expected =
+    "sha256=" + createHmac("sha256", appSecret).update(rawBody).digest("hex");
+
+  const actualBuf = Buffer.from(signatureHeader);
+  const expectedBuf = Buffer.from(expected);
+
+  return (
+    actualBuf.length === expectedBuf.length && timingSafeEqual(actualBuf, expectedBuf)
+  );
+}
+
 export async function POST(req: NextRequest) {
-  const payload: WebhookPayload = await req.json();
+  const rawBody = await req.text();
+
+  if (!isValidSignature(rawBody, req.headers.get("x-hub-signature-256"))) {
+    return NextResponse.json({ error: "invalid signature" }, { status: 401 });
+  }
+
+  const payload: WebhookPayload = JSON.parse(rawBody);
 
   try {
     await processWebhookPayload(payload);

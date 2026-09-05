@@ -1,6 +1,7 @@
 import OpenAI, { toFile } from "openai";
 import type { Message } from "./types";
 import { buildSystemPrompt, NO_REPLY_TOKEN } from "./system-prompt";
+import { getKnowledgeBase } from "./knowledge-base";
 
 const openrouter = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -24,6 +25,7 @@ const HISTORY_LIMIT = 20;
 // skip sending anything and leave the message for a human to handle.
 export async function generateReply(history: Message[]): Promise<string | null> {
   const recent = history.slice(-HISTORY_LIMIT);
+  const faqs = await getKnowledgeBase();
 
   const completion = await openrouter.chat.completions.create({
     model: process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini",
@@ -31,7 +33,7 @@ export async function generateReply(history: Message[]): Promise<string | null> 
       {
         role: "system",
         content:
-          buildSystemPrompt() +
+          buildSystemPrompt(faqs) +
           "\n\nSome messages are prefixed with [Image] or [Voice message] followed by a description or " +
           "transcript of media the customer sent — respond naturally as if you saw or heard it directly.",
       },
