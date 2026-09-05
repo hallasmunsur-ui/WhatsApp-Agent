@@ -43,25 +43,6 @@ function textFromResponse(content: Anthropic.ContentBlock[]): string {
     .trim();
 }
 
-// Anthropic requires turns to strictly alternate user/assistant and the
-// first turn to be from the user — merge consecutive same-role messages
-// (e.g. two customer texts sent back-to-back before a reply) to satisfy that.
-function toAnthropicMessages(history: Message[]): Anthropic.MessageParam[] {
-  const merged: Anthropic.MessageParam[] = [];
-  for (const m of history) {
-    const last = merged[merged.length - 1];
-    if (last && last.role === m.role && typeof last.content === "string") {
-      last.content = `${last.content}\n${m.content}`;
-    } else {
-      merged.push({ role: m.role, content: m.content });
-    }
-  }
-  while (merged.length && merged[0].role === "assistant") {
-    merged.shift();
-  }
-  return merged;
-}
-
 // Returns null when the assistant has no reliable answer — the caller should
 // skip sending anything and leave the message for a human to handle.
 export async function generateReply(history: Message[]): Promise<string | null> {
@@ -69,7 +50,10 @@ export async function generateReply(history: Message[]): Promise<string | null> 
   const faqs = await getKnowledgeBase();
   const isFirstMessage = !history.some((m) => m.role === "assistant");
 
-  const messages = toAnthropicMessages(recent);
+  const messages: Anthropic.MessageParam[] = recent.map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
   if (messages.length === 0) return null;
 
   const completion = await anthropic.messages.create({
