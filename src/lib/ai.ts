@@ -50,11 +50,19 @@ function textFromResponse(content: Anthropic.ContentBlock[]): string {
     .trim();
 }
 
-// A handful of bare greetings get an exact, fixed reply — checked in code
-// (not left to the model) so the wording never drifts, no matter where in
-// the conversation the customer sends them.
-const ENGLISH_GREETINGS = new Set(["hi", "hello", "hey", "hi hello", "hello hi", "hey there", "hi there"]);
-const ASSALAMU_ALAIKUM_VARIANTS = new Set([
+// A bare greeting ("hi", "hello", "salam", etc.) always gets this same
+// fixed reply — checked in code (not left to the model) so the wording
+// never drifts, no matter where in the conversation it's sent.
+const BARE_GREETINGS = new Set([
+  "hi",
+  "hello",
+  "hey",
+  "hi hello",
+  "hello hi",
+  "hey there",
+  "hi there",
+  "সালাম",
+  "salam",
   "আসসালামু আলাইকুম",
   "আসসালামুআলাইকুম",
   "assalamu alaikum",
@@ -64,6 +72,8 @@ const ASSALAMU_ALAIKUM_VARIANTS = new Set([
   "assalamu alaikum wa rahmatullah",
 ]);
 
+const GREETING_REPLY = "কোনো প্রশ্ন আছে বা কোনো কিছু জানতে চান?";
+
 function normalizeGreeting(text: string): string {
   return text
     .toLowerCase()
@@ -72,22 +82,8 @@ function normalizeGreeting(text: string): string {
     .trim();
 }
 
-const FIXED_ENGLISH_GREETING_REPLY =
-  "আসসালামু আলাইকুম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?";
-const FIXED_ASSALAMU_ALAIKUM_REPLY =
-  "ওয়ালাইকুম সালাম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?";
-// Used for a repeat bare greeting later in the same conversation — kept
-// deterministic too (not left to the model) after seeing it mash up pieces
-// of both fixed templates into a nonsensical reply (e.g. "ওয়ালাইকুম সালাম"
-// in answer to an English "hello").
-const REPEAT_GREETING_REPLY = "কেমন আছেন? কোর্স নিয়ে কোনো প্রশ্ন থাকলে জিজ্ঞাসা করুন।";
-
-function bareGreetingReply(content: string, alreadyGreeted: boolean): string | null {
-  const normalized = normalizeGreeting(content);
-  const isBareGreeting = ENGLISH_GREETINGS.has(normalized) || ASSALAMU_ALAIKUM_VARIANTS.has(normalized);
-  if (!isBareGreeting) return null;
-  if (alreadyGreeted) return REPEAT_GREETING_REPLY;
-  return ENGLISH_GREETINGS.has(normalized) ? FIXED_ENGLISH_GREETING_REPLY : FIXED_ASSALAMU_ALAIKUM_REPLY;
+function bareGreetingReply(content: string): string | null {
+  return BARE_GREETINGS.has(normalizeGreeting(content)) ? GREETING_REPLY : null;
 }
 
 // Returns null when the assistant has no reliable answer — the caller should
@@ -96,19 +92,9 @@ export async function generateReply(history: Message[]): Promise<string | null> 
   const recent = history.slice(-HISTORY_LIMIT);
   if (recent.length === 0) return null;
 
-  // The full fixed greeting script only fires the first time it's needed in
-  // a conversation — once already sent, a repeat bare greeting gets the
-  // short REPEAT_GREETING_REPLY instead (still fixed, never left to the
-  // model — see the comment on REPEAT_GREETING_REPLY above).
-  const alreadyGreeted = history.some(
-    (m) =>
-      m.role === "assistant" &&
-      (m.content === FIXED_ENGLISH_GREETING_REPLY || m.content === FIXED_ASSALAMU_ALAIKUM_REPLY)
-  );
-
   const latest = recent[recent.length - 1];
   if (latest.role === "user") {
-    const fixed = bareGreetingReply(latest.content, alreadyGreeted);
+    const fixed = bareGreetingReply(latest.content);
     if (fixed) return fixed;
   }
 
