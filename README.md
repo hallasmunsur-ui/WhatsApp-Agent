@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WhatsApp AI Agent
 
-## Getting Started
+A production-ready WhatsApp AI agent built with Next.js (App Router), the
+official Meta WhatsApp Business API, Supabase, and OpenRouter. Replaces n8n
+with a single app that handles the webhook, generates AI replies, and
+provides a live dashboard of all conversations.
 
-First, run the development server:
+```
+User sends WhatsApp message
+  → Meta forwards to our webhook (POST /api/webhook)
+  → App extracts message, stores in DB
+  → App sends message to AI model (OpenRouter)
+  → App sends AI response back via Meta Graph API
+  → App stores AI response in DB
+  → Frontend dashboard shows all conversations in real-time
+```
+
+## Setup
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Create a Supabase project
+
+Apply the schema in [`supabase/migrations/0001_create_conversations_and_messages.sql`](supabase/migrations/0001_create_conversations_and_messages.sql)
+using the Supabase SQL editor, the Supabase CLI, or the Supabase MCP server's
+`apply_migration` tool.
+
+### 3. Configure environment variables
+
+```bash
+cp .env.example .env.local
+```
+
+Fill in:
+
+- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` — from your
+  Supabase project's API settings.
+- `SUPABASE_SERVICE_ROLE_KEY` — same page, service role secret (server-only,
+  never exposed to the browser).
+- `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_ACCESS_TOKEN` — from your Meta App's
+  WhatsApp product. Use a permanent token from a System User so it never
+  expires.
+- `WHATSAPP_VERIFY_TOKEN` — any string you choose; you'll enter the same
+  value when configuring the webhook in Meta's dashboard.
+- `OPENROUTER_API_KEY` / `OPENROUTER_MODEL` — from https://openrouter.ai.
+
+### 4. Run locally
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit `http://localhost:3000` for the dashboard.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+To receive real WhatsApp webhooks locally, tunnel port 3000 (e.g. with
+`ngrok http 3000`) and use that URL when configuring the webhook below.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 5. Configure the Meta webhook
 
-## Learn More
+In Meta App Dashboard → WhatsApp → Configuration:
 
-To learn more about Next.js, take a look at the following resources:
+- Callback URL: `https://<your-domain>/api/webhook`
+- Verify token: same value as `WHATSAPP_VERIFY_TOKEN`
+- Subscribe to the `messages` webhook field
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 6. Deploy
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Deploy to Vercel (or any Node.js host) and set the same environment
+variables in the hosting provider's dashboard.
 
-## Deploy on Vercel
+## How it works
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **`POST /api/webhook`** — receives incoming WhatsApp messages, stores them,
+  and (when the conversation is in `agent` mode) generates and sends an AI
+  reply via OpenRouter. Always responds `200` quickly so Meta doesn't retry.
+- **`GET /api/webhook`** — handles Meta's webhook verification handshake.
+- **Conversation modes**: each conversation is either `agent` (AI replies
+  automatically) or `human` (messages are stored only; a person replies from
+  the dashboard). Toggle this from the chat panel.
+- **Dashboard** (`/`) — lists conversations sorted by latest activity, shows
+  full message history for the selected conversation, and updates in real
+  time via Supabase Realtime.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project structure
+
+```
+src/
+  app/
+    page.tsx                  Dashboard UI
+    api/webhook/route.ts      Meta webhook (GET verify, POST receive)
+    api/conversations/        REST API for the dashboard
+  components/
+    ConversationSidebar.tsx
+    ChatPanel.tsx
+  lib/
+    supabase-server.ts        Service-role client (server only)
+    supabase-browser.ts       Anon client (browser, realtime)
+    whatsapp.ts                sendWhatsAppMessage()
+    ai.ts                     generateReply() via OpenRouter
+    types.ts
+supabase/migrations/          SQL schema
+```
