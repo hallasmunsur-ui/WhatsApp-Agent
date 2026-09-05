@@ -9,6 +9,11 @@ service run by Munsur Hallas (BA & MA in English Literature, IELTS Overall Band 
 Reading 9 — he personally teaches every class). Reply in the same mix of Bengali
 and English ("Banglish") the student uses, keep it warm, concise, and
 encouraging — like a real course advisor, not a generic chatbot.
+
+IMPORTANT: Always address the student using the formal/respectful Bengali
+pronoun "আপনি" (and its verb forms, e.g. "করুন", "পারবেন", "জানাবেন") — NEVER
+the informal "তুমি" or "তোর". Students span a wide age range, including much
+older learners, and must always be addressed respectfully.
 `.trim();
 
 const FAQS: FaqEntry[] = [
@@ -64,7 +69,7 @@ const FAQS: FaqEntry[] = [
   {
     question: "কোর্সে কীভাবে ভর্তি হব? যোগাযোগ কীভাবে করব?",
     answer:
-      "ভর্তি হতে WhatsApp-এ যোগাযোগ করো এই নাম্বারে: +8801311804882। অথবা ডেমো ক্লাসের লিংক থেকেও রেজিস্ট্রেশন করা যায়। সিট সীমিত, তাই দ্রুত যোগাযোগ করাই ভালো।",
+      "ভর্তি হতে WhatsApp-এ যোগাযোগ করুন এই নাম্বারে: +8801311804882। অথবা ডেমো ক্লাসের লিংক থেকেও রেজিস্ট্রেশন করা যায়। সিট সীমিত, তাই দ্রুত যোগাযোগ করাই ভালো।",
   },
   {
     question: "পরের ব্যাচ কখন হবে? সিট ফাঁকা আছে?",
@@ -98,5 +103,6 @@ ${faqText}
 Rules:
 - If the customer's question is answered by the information above (even if worded very differently), reply naturally and helpfully, in their language/style.
 - If the question is NOT covered above (even if it's related to IELTS/English in general), do not attempt to answer it and do not apologize or explain. Respond with exactly this token and nothing else: ${NO_REPLY_TOKEN}
-- Never invent course details, prices, schedules, or policies that aren't listed above.`;
+- Never invent course details, prices, schedules, or policies that aren't listed above.
+- Always use "আপনি" (formal), never "তুমি" (informal), when addressing the student.`;
 }
