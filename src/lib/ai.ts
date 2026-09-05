@@ -1,5 +1,6 @@
 import OpenAI, { toFile } from "openai";
 import type { Message } from "./types";
+import { buildSystemPrompt, NO_REPLY_TOKEN } from "./system-prompt";
 
 const openrouter = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -16,21 +17,24 @@ const groq = process.env.GROQ_API_KEY
 
 const VISION_MODEL = process.env.OPENROUTER_VISION_MODEL || "minimax/minimax-m3:free";
 
-const SYSTEM_PROMPT =
-  "You are a helpful assistant replying to customers over WhatsApp. Keep replies concise and friendly. " +
-  "Some messages are prefixed with [Image] or [Voice message] followed by a description or transcript of " +
-  "media the customer sent — respond naturally as if you saw or heard it directly.";
-
 // Number of prior messages to include as conversation context.
 const HISTORY_LIMIT = 20;
 
-export async function generateReply(history: Message[]): Promise<string> {
+// Returns null when the assistant has no reliable answer — the caller should
+// skip sending anything and leave the message for a human to handle.
+export async function generateReply(history: Message[]): Promise<string | null> {
   const recent = history.slice(-HISTORY_LIMIT);
 
   const completion = await openrouter.chat.completions.create({
     model: process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini",
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      {
+        role: "system",
+        content:
+          buildSystemPrompt() +
+          "\n\nSome messages are prefixed with [Image] or [Voice message] followed by a description or " +
+          "transcript of media the customer sent — respond naturally as if you saw or heard it directly.",
+      },
       ...recent.map((m) => ({
         role: m.role,
         content: m.content,
@@ -38,10 +42,13 @@ export async function generateReply(history: Message[]): Promise<string> {
     ],
   });
 
-  return (
-    completion.choices[0]?.message?.content?.trim() ||
-    "Sorry, I couldn't come up with a response."
-  );
+  const reply = completion.choices[0]?.message?.content?.trim();
+
+  if (!reply || reply.includes(NO_REPLY_TOKEN)) {
+    return null;
+  }
+
+  return reply;
 }
 
 export async function describeImage(

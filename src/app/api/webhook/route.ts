@@ -169,6 +169,11 @@ async function handleIncomingMessage(
 
   const replyText = await generateReply((history ?? []) as Message[]);
 
+  if (!replyText) {
+    // The assistant has no reliable answer — leave it for a human to reply.
+    return;
+  }
+
   await sendWhatsAppMessage(phone, replyText);
 
   await supabaseServer.from("messages").insert({
