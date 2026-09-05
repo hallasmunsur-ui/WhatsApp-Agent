@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/Avatar";
+import { PushToggle } from "@/components/PushToggle";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import type { ConversationWithLastMessage } from "@/lib/types";
 
@@ -58,6 +59,8 @@ function MoreMenu({ onLogout }: { onLogout: () => void }) {
             </svg>
             Knowledge Base
           </Link>
+          <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
+          <PushToggle />
           <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
           <button
             onClick={() => {

@@ -3,8 +3,20 @@ import { NextRequest, NextResponse } from "next/server";
 const SESSION_COOKIE = "session";
 
 // Paths that must stay open without login: Meta's webhook (protected
-// separately by HMAC signature) and the login flow itself.
-const PUBLIC_PATHS = ["/login", "/api/login", "/api/webhook"];
+// separately by HMAC signature), the login flow itself, and the PWA assets
+// (manifest, service worker, icons) a browser fetches before/without auth
+// when installing the app to a home screen.
+const PUBLIC_PATHS = [
+  "/login",
+  "/api/login",
+  "/api/webhook",
+  "/manifest.webmanifest",
+  "/sw.js",
+  "/icon",
+  "/apple-icon",
+  "/manifest-icon-192",
+  "/manifest-icon-512",
+];
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

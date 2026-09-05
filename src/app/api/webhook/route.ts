@@ -5,6 +5,7 @@ import { downloadWhatsAppMedia, sendWhatsAppMessage } from "@/lib/whatsapp";
 import { describeImage, generateReply, transcribeAudio } from "@/lib/ai";
 import { uploadMedia } from "@/lib/storage";
 import { findOrCreateConversation } from "@/lib/conversations";
+import { sendPushToAll } from "@/lib/push";
 import type { Message } from "@/lib/types";
 
 const SUPPORTED_MESSAGE_TYPES = ["text", "image", "audio"];
@@ -202,7 +203,13 @@ async function handleIncomingMessage(
   const replyText = await generateReply((history ?? []) as Message[]);
 
   if (!replyText) {
-    // The assistant has no reliable answer — leave it for a human to reply.
+    // The assistant has no reliable answer — leave it for a human to reply,
+    // and let the founder know so they can jump in.
+    await sendPushToAll({
+      title: name || phone,
+      body: resolved.content.slice(0, 150),
+      url: `/?conversation=${conversation.id}`,
+    });
     return;
   }
 

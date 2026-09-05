@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { ConversationSidebar } from "@/components/ConversationSidebar";
 import { ChatPanel } from "@/components/ChatPanel";
@@ -11,10 +12,21 @@ import type {
 } from "@/lib/types";
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+function DashboardContent() {
+  const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<
     ConversationWithLastMessage[]
   >([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    searchParams.get("conversation")
+  );
   const [messages, setMessages] = useState<Message[]>([]);
 
   const loadConversations = useCallback(async () => {
