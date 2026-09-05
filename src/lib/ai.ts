@@ -76,12 +76,18 @@ const FIXED_ENGLISH_GREETING_REPLY =
   "আসসালামু আলাইকুম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?";
 const FIXED_ASSALAMU_ALAIKUM_REPLY =
   "ওয়ালাইকুম সালাম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?";
+// Used for a repeat bare greeting later in the same conversation — kept
+// deterministic too (not left to the model) after seeing it mash up pieces
+// of both fixed templates into a nonsensical reply (e.g. "ওয়ালাইকুম সালাম"
+// in answer to an English "hello").
+const REPEAT_GREETING_REPLY = "কেমন আছেন? কোর্স নিয়ে কোনো প্রশ্ন থাকলে জিজ্ঞাসা করুন।";
 
-function bareGreetingReply(content: string): string | null {
+function bareGreetingReply(content: string, alreadyGreeted: boolean): string | null {
   const normalized = normalizeGreeting(content);
-  if (ENGLISH_GREETINGS.has(normalized)) return FIXED_ENGLISH_GREETING_REPLY;
-  if (ASSALAMU_ALAIKUM_VARIANTS.has(normalized)) return FIXED_ASSALAMU_ALAIKUM_REPLY;
-  return null;
+  const isBareGreeting = ENGLISH_GREETINGS.has(normalized) || ASSALAMU_ALAIKUM_VARIANTS.has(normalized);
+  if (!isBareGreeting) return null;
+  if (alreadyGreeted) return REPEAT_GREETING_REPLY;
+  return ENGLISH_GREETINGS.has(normalized) ? FIXED_ENGLISH_GREETING_REPLY : FIXED_ASSALAMU_ALAIKUM_REPLY;
 }
 
 // Returns null when the assistant has no reliable answer — the caller should
@@ -90,9 +96,10 @@ export async function generateReply(history: Message[]): Promise<string | null> 
   const recent = history.slice(-HISTORY_LIMIT);
   if (recent.length === 0) return null;
 
-  // The fixed greeting reply only fires the first time it's needed in a
-  // conversation — once already sent, a repeat "hi" gets a normal reply
-  // from the model instead of the same scripted line again.
+  // The full fixed greeting script only fires the first time it's needed in
+  // a conversation — once already sent, a repeat bare greeting gets the
+  // short REPEAT_GREETING_REPLY instead (still fixed, never left to the
+  // model — see the comment on REPEAT_GREETING_REPLY above).
   const alreadyGreeted = history.some(
     (m) =>
       m.role === "assistant" &&
@@ -100,8 +107,8 @@ export async function generateReply(history: Message[]): Promise<string | null> 
   );
 
   const latest = recent[recent.length - 1];
-  if (!alreadyGreeted && latest.role === "user") {
-    const fixed = bareGreetingReply(latest.content);
+  if (latest.role === "user") {
+    const fixed = bareGreetingReply(latest.content, alreadyGreeted);
     if (fixed) return fixed;
   }
 
