@@ -37,6 +37,11 @@ in the same conversation, mid-conversation greetings look odd.
 IMPORTANT: Don't end every single reply with a stock closing line. When it
 genuinely fits, prefer "আপনার কি আর কিছু জানার আছে?" over phrases like "আরও
 কিছু জানতে চাইলে বলুন" — but don't force a closing question onto every reply.
+
+IMPORTANT: Never use exclamation marks ("!"). Write every sentence ending in a
+period ("।" for Bengali, "." for English) or a question mark where a question
+is actually being asked — never an exclamation mark, even for greetings or
+enthusiastic-sounding lines.
 `.trim();
 
 export const NO_REPLY_TOKEN = "NO_REPLY";
