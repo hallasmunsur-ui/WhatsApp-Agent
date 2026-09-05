@@ -41,12 +41,20 @@ export function ConversationSidebar({
         <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
           Conversations
         </h1>
-        <Link
-          href="/knowledge-base"
-          className="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
-        >
-          Knowledge Base
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/broadcasts"
+            className="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+          >
+            Broadcasts
+          </Link>
+          <Link
+            href="/knowledge-base"
+            className="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+          >
+            Knowledge Base
+          </Link>
+        </div>
       </div>
       <div className="border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
         <input

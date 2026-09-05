@@ -26,6 +26,50 @@ export async function sendWhatsAppMessage(to: string, body: string) {
   return res.json();
 }
 
+// Sends a pre-approved WhatsApp message template — required for
+// business-initiated messages (new contacts, or anyone outside the 24h
+// customer-service window). bodyParams fill the template's {{1}}, {{2}}, ...
+// placeholders in order.
+export async function sendWhatsAppTemplateMessage(
+  to: string,
+  templateName: string,
+  languageCode: string,
+  bodyParams: string[]
+) {
+  const res = await fetch(
+    `https://graph.facebook.com/${GRAPH_API_VERSION}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to,
+        type: "template",
+        template: {
+          name: templateName,
+          language: { code: languageCode },
+          components: [
+            {
+              type: "body",
+              parameters: bodyParams.map((text) => ({ type: "text", text })),
+            },
+          ],
+        },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`WhatsApp template send failed (${res.status}): ${errorText}`);
+  }
+
+  return res.json();
+}
+
 export async function downloadWhatsAppMedia(
   mediaId: string
 ): Promise<{ buffer: Buffer; mimeType: string }> {
