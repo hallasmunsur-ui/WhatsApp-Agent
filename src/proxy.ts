@@ -6,7 +6,7 @@ const SESSION_COOKIE = "session";
 // separately by HMAC signature) and the login flow itself.
 const PUBLIC_PATHS = ["/login", "/api/login", "/api/webhook"];
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {

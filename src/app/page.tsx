@@ -103,25 +103,34 @@ export default function DashboardPage() {
   const selectedConversation = conversations.find((c) => c.id === selectedId);
 
   return (
-    <div className="flex h-screen">
-      <ConversationSidebar
-        conversations={conversations}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-      />
-      {selectedConversation ? (
-        <ChatPanel
-          conversation={selectedConversation}
-          messages={messages}
-          onModeChange={handleModeChange}
-          onTagsChange={handleTagsChange}
-          onSend={handleSend}
+    <div className="flex h-screen overflow-hidden">
+      <div
+        className={`${
+          selectedId ? "hidden" : "flex"
+        } w-full shrink-0 md:flex md:w-80 lg:w-96`}
+      >
+        <ConversationSidebar
+          conversations={conversations}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
         />
-      ) : (
-        <div className="flex flex-1 items-center justify-center text-neutral-400">
-          Select a conversation to view messages
-        </div>
-      )}
+      </div>
+      <div className={`${selectedId ? "flex" : "hidden"} flex-1 md:flex`}>
+        {selectedConversation ? (
+          <ChatPanel
+            conversation={selectedConversation}
+            messages={messages}
+            onModeChange={handleModeChange}
+            onTagsChange={handleTagsChange}
+            onSend={handleSend}
+            onBack={() => setSelectedId(null)}
+          />
+        ) : (
+          <div className="flex flex-1 items-center justify-center text-neutral-400">
+            Select a conversation to view messages
+          </div>
+        )}
+      </div>
     </div>
   );
 }

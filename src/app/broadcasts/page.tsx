@@ -62,18 +62,20 @@ export default function BroadcastsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
-          Broadcasts
-        </h1>
-        <Link
-          href="/"
-          className="text-sm text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
-        >
-          ← Dashboard
-        </Link>
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
+      <div className="flex items-center justify-between bg-emerald-700 px-4 py-3 text-white dark:bg-emerald-900 sm:px-6">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            aria-label="Back to dashboard"
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/10"
+          >
+            ←
+          </Link>
+          <h1 className="text-base font-semibold">Broadcasts</h1>
+        </div>
       </div>
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
 
       {loading ? (
         <p className="text-sm text-neutral-500">লোড হচ্ছে…</p>
@@ -138,6 +140,7 @@ export default function BroadcastsPage() {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }
