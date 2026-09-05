@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ConversationWithLastMessage } from "@/lib/types";
 
 function formatTime(iso: string) {
@@ -23,6 +24,7 @@ export function ConversationSidebar({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
 
   const filtered = conversations.filter((c) => {
@@ -54,6 +56,16 @@ export function ConversationSidebar({
           >
             Knowledge Base
           </Link>
+          <button
+            onClick={async () => {
+              await fetch("/api/logout", { method: "POST" });
+              router.push("/login");
+              router.refresh();
+            }}
+            className="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+          >
+            Logout
+          </button>
         </div>
       </div>
       <div className="border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
