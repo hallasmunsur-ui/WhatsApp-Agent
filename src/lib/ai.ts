@@ -21,6 +21,19 @@ const VISION_MODEL = process.env.OPENROUTER_VISION_MODEL || "minimax/minimax-m3:
 // Number of prior messages to include as conversation context.
 const HISTORY_LIMIT = 20;
 
+// The model is instructed never to use emojis, but free-tier models don't
+// always follow that reliably — strip any that slip through as a safety net.
+const EMOJI_REGEX =
+  /[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}️‍]/gu;
+
+function stripEmojis(text: string): string {
+  return text
+    .replace(EMOJI_REGEX, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
+}
+
 // Returns null when the assistant has no reliable answer — the caller should
 // skip sending anything and leave the message for a human to handle.
 export async function generateReply(history: Message[]): Promise<string | null> {
@@ -51,7 +64,7 @@ export async function generateReply(history: Message[]): Promise<string | null> 
     return null;
   }
 
-  return reply;
+  return stripEmojis(reply);
 }
 
 export async function describeImage(
