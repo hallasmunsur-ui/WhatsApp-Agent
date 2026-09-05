@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
-import { sendWhatsAppMessage } from "@/lib/whatsapp";
-import { generateReply } from "@/lib/ai";
+import { downloadWhatsAppMedia, sendWhatsAppMessage } from "@/lib/whatsapp";
+import { describeImage, generateReply, transcribeAudio } from "@/lib/ai";
 import type { Message } from "@/lib/types";
+
+const SUPPORTED_MESSAGE_TYPES = ["text", "image", "audio"];
 
 interface WhatsAppTextMessage {
   from: string;
   id: string;
   type: string;
   text?: { body: string };
+  image?: { id: string; mime_type: string; caption?: string };
+  audio?: { id: string; mime_type: string; voice?: boolean };
 }
 
 interface WhatsAppContact {
@@ -73,23 +77,53 @@ async function processWebhookPayload(payload: WebhookPayload) {
   }
 }
 
+async function resolveMessageContent(waMessage: WhatsAppTextMessage): Promise<string> {
+  if (waMessage.type === "text") {
+    return waMessage.text?.body ?? "";
+  }
+
+  if (waMessage.type === "image" && waMessage.image) {
+    const { buffer, mimeType } = await downloadWhatsAppMedia(waMessage.image.id);
+    const description = await describeImage(buffer, mimeType, waMessage.image.caption ?? null);
+    return `[Image] ${description}`;
+  }
+
+  if (waMessage.type === "audio" && waMessage.audio) {
+    const { buffer, mimeType } = await downloadWhatsAppMedia(waMessage.audio.id);
+    const transcript = await transcribeAudio(buffer, mimeType);
+    return `[Voice message] ${transcript}`;
+  }
+
+  throw new Error(`Unhandled message type: ${waMessage.type}`);
+}
+
 async function handleIncomingMessage(
   waMessage: WhatsAppTextMessage,
   contact: WhatsAppContact | undefined
 ) {
-  if (waMessage.type !== "text") return;
+  if (!SUPPORTED_MESSAGE_TYPES.includes(waMessage.type)) return;
 
-  const phone = waMessage.from as string;
-  const text = waMessage.text?.body ?? "";
-  const whatsappMsgId = waMessage.id as string;
+  const phone = waMessage.from;
+  const whatsappMsgId = waMessage.id;
   const name = contact?.profile?.name ?? null;
+
+  let content: string;
+  try {
+    content = await resolveMessageContent(waMessage);
+  } catch (err) {
+    console.error("Failed to process incoming media:", err);
+    content =
+      waMessage.type === "audio"
+        ? "[Voice message could not be transcribed]"
+        : "[Image could not be processed]";
+  }
 
   const conversation = await findOrCreateConversation(phone, name);
 
   const { error: insertError } = await supabaseServer.from("messages").insert({
     conversation_id: conversation.id,
     role: "user",
-    content: text,
+    content,
     whatsapp_msg_id: whatsappMsgId,
   });
 
