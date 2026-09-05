@@ -1,11 +1,11 @@
+import Anthropic from "@anthropic-ai/sdk";
 import OpenAI, { toFile } from "openai";
 import type { Message } from "./types";
 import { buildSystemPrompt, NO_REPLY_TOKEN } from "./system-prompt";
 import { getKnowledgeBase } from "./knowledge-base";
 
-const openrouter = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY,
-  baseURL: "https://openrouter.ai/api/v1",
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 // Optional: only used to transcribe incoming WhatsApp voice notes.
@@ -16,13 +16,14 @@ const groq = process.env.GROQ_API_KEY
     })
   : null;
 
-const VISION_MODEL = process.env.OPENROUTER_VISION_MODEL || "minimax/minimax-m3:free";
+const TEXT_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
+const VISION_MODEL = process.env.ANTHROPIC_VISION_MODEL || "claude-haiku-4-5-20251001";
 
 // Number of prior messages to include as conversation context.
 const HISTORY_LIMIT = 20;
 
-// The model is instructed never to use emojis, but free-tier models don't
-// always follow that reliably — strip any that slip through as a safety net.
+// The model is instructed never to use emojis, but strip any that slip
+// through as a safety net.
 const EMOJI_REGEX =
   /[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}️‍]/gu;
 
@@ -34,6 +35,33 @@ function stripEmojis(text: string): string {
     .trim();
 }
 
+function textFromResponse(content: Anthropic.ContentBlock[]): string {
+  return content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("\n")
+    .trim();
+}
+
+// Anthropic requires turns to strictly alternate user/assistant and the
+// first turn to be from the user — merge consecutive same-role messages
+// (e.g. two customer texts sent back-to-back before a reply) to satisfy that.
+function toAnthropicMessages(history: Message[]): Anthropic.MessageParam[] {
+  const merged: Anthropic.MessageParam[] = [];
+  for (const m of history) {
+    const last = merged[merged.length - 1];
+    if (last && last.role === m.role && typeof last.content === "string") {
+      last.content = `${last.content}\n${m.content}`;
+    } else {
+      merged.push({ role: m.role, content: m.content });
+    }
+  }
+  while (merged.length && merged[0].role === "assistant") {
+    merged.shift();
+  }
+  return merged;
+}
+
 // Returns null when the assistant has no reliable answer — the caller should
 // skip sending anything and leave the message for a human to handle.
 export async function generateReply(history: Message[]): Promise<string | null> {
@@ -41,24 +69,20 @@ export async function generateReply(history: Message[]): Promise<string | null> 
   const faqs = await getKnowledgeBase();
   const isFirstMessage = !history.some((m) => m.role === "assistant");
 
-  const completion = await openrouter.chat.completions.create({
-    model: process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini",
-    messages: [
-      {
-        role: "system",
-        content:
-          buildSystemPrompt(faqs, isFirstMessage) +
-          "\n\nSome messages are prefixed with [Image] or [Voice message] followed by a description or " +
-          "transcript of media the customer sent — respond naturally as if you saw or heard it directly.",
-      },
-      ...recent.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-    ],
+  const messages = toAnthropicMessages(recent);
+  if (messages.length === 0) return null;
+
+  const completion = await anthropic.messages.create({
+    model: TEXT_MODEL,
+    max_tokens: 1024,
+    system:
+      buildSystemPrompt(faqs, isFirstMessage) +
+      "\n\nSome messages are prefixed with [Image] or [Voice message] followed by a description or " +
+      "transcript of media the customer sent — respond naturally as if you saw or heard it directly.",
+    messages,
   });
 
-  const reply = completion.choices[0]?.message?.content?.trim();
+  const reply = textFromResponse(completion.content);
 
   if (!reply || reply.includes(NO_REPLY_TOKEN)) {
     return null;
@@ -67,33 +91,46 @@ export async function generateReply(history: Message[]): Promise<string | null> 
   return stripEmojis(reply);
 }
 
+const SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
+type SupportedImageType = (typeof SUPPORTED_IMAGE_TYPES)[number];
+
+function toSupportedImageType(mimeType: string): SupportedImageType {
+  return (SUPPORTED_IMAGE_TYPES as readonly string[]).includes(mimeType)
+    ? (mimeType as SupportedImageType)
+    : "image/jpeg";
+}
+
 export async function describeImage(
   buffer: Buffer,
   mimeType: string,
   caption: string | null
 ): Promise<string> {
-  const dataUrl = `data:${mimeType};base64,${buffer.toString("base64")}`;
   const instruction = caption
     ? `The sender attached this image with the caption: "${caption}". Describe what's in the image and transcribe any visible text, so a support agent can understand what they're asking about.`
     : "Describe what's in this image and transcribe any visible text (e.g. if it's a screenshot), so a support agent can understand what the sender is asking about.";
 
-  const completion = await openrouter.chat.completions.create({
+  const completion = await anthropic.messages.create({
     model: VISION_MODEL,
+    max_tokens: 512,
     messages: [
       {
         role: "user",
         content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: toSupportedImageType(mimeType),
+              data: buffer.toString("base64"),
+            },
+          },
           { type: "text", text: instruction },
-          { type: "image_url", image_url: { url: dataUrl } },
         ],
       },
     ],
   });
 
-  return (
-    completion.choices[0]?.message?.content?.trim() ||
-    "Image received, but it couldn't be processed."
-  );
+  return textFromResponse(completion.content) || "Image received, but it couldn't be processed.";
 }
 
 export async function transcribeAudio(buffer: Buffer, mimeType: string): Promise<string> {
