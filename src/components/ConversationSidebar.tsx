@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import type { ConversationWithLastMessage } from "@/lib/types";
 
@@ -22,6 +23,18 @@ export function ConversationSidebar({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
+  const [query, setQuery] = useState("");
+
+  const filtered = conversations.filter((c) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      c.phone.toLowerCase().includes(q) ||
+      (c.name ?? "").toLowerCase().includes(q) ||
+      c.tags.some((tag) => tag.toLowerCase().includes(q))
+    );
+  });
+
   return (
     <div className="flex h-full w-80 shrink-0 flex-col border-r border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
       <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-4 dark:border-neutral-800">
@@ -35,13 +48,23 @@ export function ConversationSidebar({
           Knowledge Base
         </Link>
       </div>
+      <div className="border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="নাম, ফোন নাম্বার বা ট্যাগ দিয়ে খুঁজুন…"
+          className="w-full rounded-md border border-neutral-300 bg-neutral-50 px-3 py-1.5 text-sm outline-none focus:border-neutral-400 dark:border-neutral-700 dark:bg-neutral-900"
+        />
+      </div>
       <div className="flex-1 overflow-y-auto">
-        {conversations.length === 0 && (
+        {filtered.length === 0 && (
           <p className="px-4 py-6 text-sm text-neutral-500">
-            No conversations yet.
+            {conversations.length === 0
+              ? "No conversations yet."
+              : "কোনো ফলাফল পাওয়া যায়নি।"}
           </p>
         )}
-        {conversations.map((conversation) => {
+        {filtered.map((conversation) => {
           const isActive = conversation.id === selectedId;
           const isHuman = conversation.mode === "human";
 
