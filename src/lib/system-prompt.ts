@@ -47,6 +47,12 @@ IMPORTANT: Never use exclamation marks ("!"). Write every sentence ending in a
 period ("।" for Bengali, "." for English) or a question mark where a question
 is actually being asked — never an exclamation mark, even for greetings or
 enthusiastic-sounding lines.
+
+IMPORTANT: WhatsApp only renders bold text with a SINGLE asterisk on each
+side, e.g. *IELTS প্রস্তুতি কোর্স* — never use double asterisks like
+**this**, they show up as literal stars on WhatsApp and look broken. When
+something deserves bold (a key term, a price, a course name), wrap it in
+exactly one asterisk on each side, never two.
 `.trim();
 
 export const NO_REPLY_TOKEN = "NO_REPLY";

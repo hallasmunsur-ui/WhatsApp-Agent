@@ -27,13 +27,16 @@ const HISTORY_LIMIT = 20;
 const EMOJI_REGEX =
   /[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}️‍]/gu;
 
-function stripEmojis(text: string): string {
+function sanitizeReply(text: string): string {
   return text
     .replace(EMOJI_REGEX, "")
     // The model is instructed never to use "!", but strip any that slip
     // through too — a period reads as neutral in both Bengali and English.
     .replace(/!+/g, ".")
     .replace(/[।.]{2,}/g, (match) => match[match.length - 1])
+    // WhatsApp only bolds with a single asterisk on each side — collapse any
+    // markdown-style double asterisks the model slips in.
+    .replace(/\*\*(.+?)\*\*/g, "*$1*")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/[ \t]+\n/g, "\n")
     .trim();
@@ -116,7 +119,7 @@ export async function generateReply(history: Message[]): Promise<string | null> 
     return null;
   }
 
-  return stripEmojis(reply);
+  return sanitizeReply(reply);
 }
 
 const SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
