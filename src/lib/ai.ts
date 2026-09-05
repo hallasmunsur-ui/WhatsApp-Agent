@@ -72,14 +72,15 @@ function normalizeGreeting(text: string): string {
     .trim();
 }
 
+const FIXED_ENGLISH_GREETING_REPLY =
+  "আসসালামু আলাইকুম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?";
+const FIXED_ASSALAMU_ALAIKUM_REPLY =
+  "ওয়ালাইকুম সালাম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?";
+
 function bareGreetingReply(content: string): string | null {
   const normalized = normalizeGreeting(content);
-  if (ENGLISH_GREETINGS.has(normalized)) {
-    return "আসসালামু আলাইকুম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?";
-  }
-  if (ASSALAMU_ALAIKUM_VARIANTS.has(normalized)) {
-    return "ওয়ালাইকুম সালাম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?";
-  }
+  if (ENGLISH_GREETINGS.has(normalized)) return FIXED_ENGLISH_GREETING_REPLY;
+  if (ASSALAMU_ALAIKUM_VARIANTS.has(normalized)) return FIXED_ASSALAMU_ALAIKUM_REPLY;
   return null;
 }
 
@@ -89,8 +90,17 @@ export async function generateReply(history: Message[]): Promise<string | null> 
   const recent = history.slice(-HISTORY_LIMIT);
   if (recent.length === 0) return null;
 
+  // The fixed greeting reply only fires the first time it's needed in a
+  // conversation — once already sent, a repeat "hi" gets a normal reply
+  // from the model instead of the same scripted line again.
+  const alreadyGreeted = history.some(
+    (m) =>
+      m.role === "assistant" &&
+      (m.content === FIXED_ENGLISH_GREETING_REPLY || m.content === FIXED_ASSALAMU_ALAIKUM_REPLY)
+  );
+
   const latest = recent[recent.length - 1];
-  if (latest.role === "user") {
+  if (!alreadyGreeted && latest.role === "user") {
     const fixed = bareGreetingReply(latest.content);
     if (fixed) return fixed;
   }
