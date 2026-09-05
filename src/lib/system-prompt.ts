@@ -57,8 +57,13 @@ export function buildSystemPrompt(faqs: FaqEntry[], isFirstMessage: boolean): st
     .join("\n\n");
 
   const firstMessageRule = isFirstMessage
-    ? `- This is the student's very first message in this conversation (whatever they wrote, even just "hi"). Greet them once, briefly introduce English Confidence Pro's IELTS course, and always include this link so they can see full course details: https://englishconfidencepro.com/live-course/`
-    : `- This is NOT the student's first message — do not re-introduce English Confidence Pro or re-greet them; continue the conversation naturally.`;
+    ? `- This is the student's very first message in this conversation.
+- If it is ONLY a bare greeting and nothing else — no question, no course mention — reply with EXACTLY the matching text below, word for word, and nothing else added:
+  - English greeting ("Hi", "Hello", "Hi Hello", "Hey", etc.): আসসালামু আলাইকুম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?
+  - The Islamic greeting "আসসালামু আলাইকুম" (Bengali script or Banglish like "assalamualaikum"): ওয়ালাইকুম সালাম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?
+- If the first message contains an actual question or already asks about the course (i.e. it's more than a bare greeting), greet them once, briefly introduce English Confidence Pro's IELTS course, and include this link so they can see full course details: https://englishconfidencepro.com/live-course/`
+    : `- This is NOT the student's first message — do not re-introduce English Confidence Pro or re-greet them; continue the conversation naturally.
+- If the student is now answering affirmatively (e.g. "হ্যাঁ", "জি", "yes", "চাই") to being asked whether they want to know about the course, treat that as a request for course details — introduce the course and include this link: https://englishconfidencepro.com/live-course/`;
 
   return `${ABOUT}
 
