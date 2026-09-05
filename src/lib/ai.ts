@@ -26,6 +26,7 @@ const HISTORY_LIMIT = 20;
 export async function generateReply(history: Message[]): Promise<string | null> {
   const recent = history.slice(-HISTORY_LIMIT);
   const faqs = await getKnowledgeBase();
+  const isFirstMessage = !history.some((m) => m.role === "assistant");
 
   const completion = await openrouter.chat.completions.create({
     model: process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini",
@@ -33,7 +34,7 @@ export async function generateReply(history: Message[]): Promise<string | null> 
       {
         role: "system",
         content:
-          buildSystemPrompt(faqs) +
+          buildSystemPrompt(faqs, isFirstMessage) +
           "\n\nSome messages are prefixed with [Image] or [Voice message] followed by a description or " +
           "transcript of media the customer sent — respond naturally as if you saw or heard it directly.",
       },
