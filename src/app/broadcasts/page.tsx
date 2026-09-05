@@ -15,6 +15,7 @@ export default function BroadcastsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedTag, setSelectedTag] = useState<string>("");
   const [message, setMessage] = useState("");
+  const [extraPhonesText, setExtraPhonesText] = useState("");
   const [sending, setSending] = useState(false);
   const [summary, setSummary] = useState<{ sent: number; failed: number; results: BroadcastResult[] } | null>(null);
 
@@ -38,9 +39,26 @@ export default function BroadcastsPage() {
     return counts;
   }, [conversations]);
 
-  const recipientCount = selectedTag
-    ? tagCounts.get(selectedTag) ?? 0
-    : conversations.length;
+  const existingPhones = useMemo(
+    () => new Set(conversations.map((c) => c.phone.replace(/\D/g, ""))),
+    [conversations]
+  );
+
+  const extraPhones = useMemo(
+    () =>
+      extraPhonesText
+        .split(/[\n,]/)
+        .map((p) => p.replace(/\D/g, ""))
+        .filter((p) => p.length > 0),
+    [extraPhonesText]
+  );
+
+  const validExtraPhones = extraPhones.filter((p) => p.length >= 10);
+  const invalidExtraPhoneCount = extraPhones.length - validExtraPhones.length;
+  const newExtraCount = validExtraPhones.filter((p) => !existingPhones.has(p)).length;
+
+  const baseCount = selectedTag ? tagCounts.get(selectedTag) ?? 0 : conversations.length;
+  const recipientCount = baseCount + newExtraCount;
 
   async function handleSend() {
     if (!message.trim() || sending) return;
@@ -52,7 +70,7 @@ export default function BroadcastsPage() {
       const res = await fetch("/api/broadcasts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tag: selectedTag || null, message }),
+        body: JSON.stringify({ tag: selectedTag || null, message, extraPhones: validExtraPhones }),
       });
       const data = await res.json();
       setSummary(data);
@@ -96,6 +114,23 @@ export default function BroadcastsPage() {
               </option>
             ))}
           </select>
+
+          <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+            নতুন নাম্বার যোগ করুন (ঐচ্ছিক)
+          </label>
+          <textarea
+            value={extraPhonesText}
+            onChange={(e) => setExtraPhonesText(e.target.value)}
+            placeholder={"যাদের সাথে আগে কথা হয়নি এমন নাম্বারেও পাঠাতে পারবেন।\nএকটি লাইনে একটি নাম্বার, দেশের কোডসহ, যেমন:\n8801311804882\n8801XXXXXXXXX"}
+            rows={3}
+            className="mb-1 w-full rounded-md border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-700 dark:bg-neutral-900"
+          />
+          <p className="mb-4 text-xs text-neutral-500">
+            {validExtraPhones.length > 0 &&
+              `${validExtraPhones.length}টা নাম্বার শনাক্ত হয়েছে (${newExtraCount}টা নতুন)। `}
+            {invalidExtraPhoneCount > 0 &&
+              `${invalidExtraPhoneCount}টা নাম্বার সঠিক মনে হচ্ছে না — দেশের কোডসহ পুরো নাম্বার দিন।`}
+          </p>
 
           <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
             বার্তা

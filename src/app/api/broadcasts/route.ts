@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { sendWhatsAppTemplateMessage } from "@/lib/whatsapp";
+import { findOrCreateConversation } from "@/lib/conversations";
+import type { Conversation } from "@/lib/types";
 
 export const maxDuration = 60;
 
@@ -17,10 +19,18 @@ interface BroadcastResult {
   error?: string;
 }
 
+// WhatsApp phone numbers are stored as country-code-prefixed digits only
+// (e.g. "8801311804882") — strip anything else a person might paste in
+// (spaces, dashes, a leading "+").
+function normalizePhone(raw: string): string {
+  return raw.replace(/[^\d]/g, "");
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const tag: string | null = body?.tag || null;
   const message: string = (body?.message ?? "").trim();
+  const extraPhonesRaw: unknown = body?.extraPhones;
 
   if (!message) {
     return NextResponse.json({ error: "message is required" }, { status: 400 });
@@ -37,7 +47,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const recipients = conversations ?? [];
+  const recipientsByPhone = new Map<string, Conversation>();
+  for (const c of conversations ?? []) {
+    recipientsByPhone.set(c.phone, c);
+  }
+
+  const extraPhones = Array.isArray(extraPhonesRaw)
+    ? [...new Set(extraPhonesRaw.map((p) => normalizePhone(String(p))).filter((p) => p.length >= 10))]
+    : [];
+
+  for (const phone of extraPhones) {
+    if (recipientsByPhone.has(phone)) continue;
+    const conversation = await findOrCreateConversation(phone, null);
+    recipientsByPhone.set(phone, conversation);
+  }
+
+  const recipients = [...recipientsByPhone.values()];
   const results: BroadcastResult[] = [];
 
   for (let i = 0; i < recipients.length; i += CONCURRENCY) {

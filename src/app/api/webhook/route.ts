@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { downloadWhatsAppMedia, sendWhatsAppMessage } from "@/lib/whatsapp";
 import { describeImage, generateReply, transcribeAudio } from "@/lib/ai";
 import { uploadMedia } from "@/lib/storage";
+import { findOrCreateConversation } from "@/lib/conversations";
 import type { Message } from "@/lib/types";
 
 const SUPPORTED_MESSAGE_TYPES = ["text", "image", "audio"];
@@ -217,23 +218,4 @@ async function handleIncomingMessage(
     .from("conversations")
     .update({ updated_at: new Date().toISOString() })
     .eq("id", conversation.id);
-}
-
-async function findOrCreateConversation(phone: string, name: string | null) {
-  const { data: existing } = await supabaseServer
-    .from("conversations")
-    .select("*")
-    .eq("phone", phone)
-    .maybeSingle();
-
-  if (existing) return existing;
-
-  const { data: created, error } = await supabaseServer
-    .from("conversations")
-    .insert({ phone, name })
-    .select("*")
-    .single();
-
-  if (error) throw error;
-  return created;
 }
