@@ -30,6 +30,10 @@ const EMOJI_REGEX =
 function stripEmojis(text: string): string {
   return text
     .replace(EMOJI_REGEX, "")
+    // The model is instructed never to use "!", but strip any that slip
+    // through too — a period reads as neutral in both Bengali and English.
+    .replace(/!+/g, ".")
+    .replace(/[।.]{2,}/g, (match) => match[match.length - 1])
     .replace(/[ \t]{2,}/g, " ")
     .replace(/[ \t]+\n/g, "\n")
     .trim();
@@ -43,10 +47,51 @@ function textFromResponse(content: Anthropic.ContentBlock[]): string {
     .trim();
 }
 
+// A handful of bare greetings get an exact, fixed reply — checked in code
+// (not left to the model) so the wording never drifts, no matter where in
+// the conversation the customer sends them.
+const ENGLISH_GREETINGS = new Set(["hi", "hello", "hey", "hi hello", "hello hi", "hey there", "hi there"]);
+const ASSALAMU_ALAIKUM_VARIANTS = new Set([
+  "আসসালামু আলাইকুম",
+  "আসসালামুআলাইকুম",
+  "assalamu alaikum",
+  "assalamualaikum",
+  "assalamoalaikum",
+  "asalamualaikum",
+  "assalamu alaikum wa rahmatullah",
+]);
+
+function normalizeGreeting(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[.,!?।]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function bareGreetingReply(content: string): string | null {
+  const normalized = normalizeGreeting(content);
+  if (ENGLISH_GREETINGS.has(normalized)) {
+    return "আসসালামু আলাইকুম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?";
+  }
+  if (ASSALAMU_ALAIKUM_VARIANTS.has(normalized)) {
+    return "ওয়ালাইকুম সালাম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?";
+  }
+  return null;
+}
+
 // Returns null when the assistant has no reliable answer — the caller should
 // skip sending anything and leave the message for a human to handle.
 export async function generateReply(history: Message[]): Promise<string | null> {
   const recent = history.slice(-HISTORY_LIMIT);
+  if (recent.length === 0) return null;
+
+  const latest = recent[recent.length - 1];
+  if (latest.role === "user") {
+    const fixed = bareGreetingReply(latest.content);
+    if (fixed) return fixed;
+  }
+
   const faqs = await getKnowledgeBase();
   const isFirstMessage = !history.some((m) => m.role === "assistant");
 
@@ -54,7 +99,6 @@ export async function generateReply(history: Message[]): Promise<string | null> 
     role: m.role,
     content: m.content,
   }));
-  if (messages.length === 0) return null;
 
   const completion = await anthropic.messages.create({
     model: TEXT_MODEL,

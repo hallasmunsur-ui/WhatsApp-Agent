@@ -57,12 +57,8 @@ export function buildSystemPrompt(faqs: FaqEntry[], isFirstMessage: boolean): st
     .join("\n\n");
 
   const firstMessageRule = isFirstMessage
-    ? `- This is the student's very first message in this conversation.
-- If it is ONLY a bare greeting and nothing else — no question, no course mention — reply with EXACTLY the matching text below, word for word, and nothing else added:
-  - English greeting ("Hi", "Hello", "Hi Hello", "Hey", etc.): আসসালামু আলাইকুম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?
-  - The Islamic greeting "আসসালামু আলাইকুম" (Bengali script or Banglish like "assalamualaikum"): ওয়ালাইকুম সালাম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?
-- If the first message contains an actual question or already asks about the course (i.e. it's more than a bare greeting), greet them once, briefly introduce English Confidence Pro's IELTS course, and include this link so they can see full course details: https://englishconfidencepro.com/live-course/`
-    : `- This is NOT the student's first message — do not re-introduce English Confidence Pro or re-greet them; continue the conversation naturally.
+    ? `- This is the student's very first message in this conversation. Unless the bare-greeting rule above applies, and if the message contains an actual question or already asks about the course, greet them once, briefly introduce English Confidence Pro's IELTS course, and include this link so they can see full course details: https://englishconfidencepro.com/live-course/`
+    : `- This is NOT the student's first message — do not re-introduce English Confidence Pro; continue the conversation naturally (the bare-greeting rule above still applies if they send a bare greeting again).
 - If the student is now answering affirmatively (e.g. "হ্যাঁ", "জি", "yes", "চাই") to being asked whether they want to know about the course, treat that as a request for course details — introduce the course and include this link: https://englishconfidencepro.com/live-course/`;
 
   return `${ABOUT}
@@ -74,6 +70,9 @@ FAQ:
 ${faqText}
 
 Rules:
+- If the customer's latest message is ONLY a bare greeting and nothing else — no question, no course mention — reply with EXACTLY the matching text below, word for word, nothing else added. This applies every time the customer sends a bare greeting like this, no matter where in the conversation, and overrides the "greet only once" guidance above since the customer is the one re-greeting:
+  - English greeting ("Hi", "Hello", "Hi Hello", "Hey", etc.): আসসালামু আলাইকুম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?
+  - The Islamic greeting "আসসালামু আলাইকুম" (Bengali script or Banglish like "assalamualaikum"): ওয়ালাইকুম সালাম। কেমন আছেন? আপনি কি IELTS course সম্পর্কে বিস্তারিত জানতে চান?
 - Judge ONLY the customer's most recent message on its own — never NO_REPLY because an EARLIER message in this conversation went unanswered. An earlier unanswered question is already being handled by a human separately; it does not block you from replying to whatever the customer sends next (a greeting, small talk, or a new answerable question all still deserve a normal reply).
 - If the customer's latest message is answered by the information above (even if worded very differently), reply naturally and helpfully, in their language/style.
 - If the customer's latest message is a greeting or small talk with no real question in it, just reply warmly and briefly — do not treat it as unanswerable.
