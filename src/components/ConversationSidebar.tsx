@@ -85,13 +85,22 @@ export function ConversationSidebar({
   conversations,
   selectedId,
   onSelect,
+  onRefresh,
 }: {
   conversations: ConversationWithLastMessage[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onRefresh: () => void;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+
+  function handleRefresh() {
+    setRefreshing(true);
+    onRefresh();
+    setTimeout(() => setRefreshing(false), 600);
+  }
 
   const filtered = conversations.filter((c) => {
     const q = query.trim().toLowerCase();
@@ -113,7 +122,25 @@ export function ConversationSidebar({
     <div className="flex h-full w-full flex-col bg-white dark:bg-neutral-950">
       <div className="flex items-center gap-2 bg-emerald-700 px-2 py-2.5 text-white dark:bg-emerald-900 sm:px-3">
         <MoreMenu onLogout={handleLogout} />
-        <h1 className="truncate text-base font-semibold">English Confidence Pro</h1>
+        <h1 className="flex-1 truncate text-base font-semibold">English Confidence Pro</h1>
+        <button
+          onClick={handleRefresh}
+          aria-label="Refresh"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/15 active:bg-white/20"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className={refreshing ? "animate-spin" : ""}
+          >
+            <path d="M21 12a9 9 0 1 1-2.64-6.36" strokeLinecap="round" />
+            <path d="M21 3v6h-6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </div>
       <div className="border-b border-neutral-200 px-3 py-2.5 dark:border-neutral-800">
         <input

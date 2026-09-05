@@ -58,26 +58,47 @@ function DashboardContent() {
   // Realtime: refresh conversation list on any change, and refresh the open
   // thread's messages when a new message arrives for it.
   useEffect(() => {
-    const channel = supabaseBrowser
-      .channel("dashboard-updates")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "conversations" },
-        () => loadConversations()
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => {
-          loadConversations();
-          if (selectedId && payload.new.conversation_id === selectedId) {
-            loadMessages(selectedId);
+    function subscribe() {
+      return supabaseBrowser
+        .channel("dashboard-updates")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "conversations" },
+          () => loadConversations()
+        )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "messages" },
+          (payload) => {
+            loadConversations();
+            if (selectedId && payload.new.conversation_id === selectedId) {
+              loadMessages(selectedId);
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    }
+
+    let channel = subscribe();
+
+    // An installed PWA gets suspended in the background on iOS — its
+    // realtime websocket can silently die, and there's no browser chrome to
+    // pull-to-refresh. Re-fetch and re-subscribe whenever the app becomes
+    // visible again so it never shows stale data with no way to fix it.
+    function handleVisible() {
+      if (document.visibilityState !== "visible") return;
+      loadConversations();
+      if (selectedId) loadMessages(selectedId);
+      supabaseBrowser.removeChannel(channel);
+      channel = subscribe();
+    }
+
+    document.addEventListener("visibilitychange", handleVisible);
+    window.addEventListener("focus", handleVisible);
 
     return () => {
+      document.removeEventListener("visibilitychange", handleVisible);
+      window.removeEventListener("focus", handleVisible);
       supabaseBrowser.removeChannel(channel);
     };
   }, [selectedId, loadConversations, loadMessages]);
@@ -125,6 +146,10 @@ function DashboardContent() {
           conversations={conversations}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          onRefresh={() => {
+            loadConversations();
+            if (selectedId) loadMessages(selectedId);
+          }}
         />
       </div>
       <div className={`${selectedId ? "flex" : "hidden"} flex-1 md:flex`}>
