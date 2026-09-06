@@ -108,7 +108,9 @@ export async function generateReply(history: Message[]): Promise<string | null> 
 
   const completion = await anthropic.messages.create({
     model: TEXT_MODEL,
-    max_tokens: 1024,
+    // Academic answers (grammar breakdowns, Writing feedback against all
+    // four IELTS criteria) run much longer than a course FAQ answer.
+    max_tokens: 2048,
     system:
       buildSystemPrompt(faqs, isFirstMessage) +
       "\n\nSome messages are prefixed with [Image] or [Voice message] followed by a description or " +
@@ -140,12 +142,12 @@ export async function describeImage(
   caption: string | null
 ): Promise<string> {
   const instruction = caption
-    ? `The sender attached this image with the caption: "${caption}". Describe what's in the image and transcribe any visible text, so a support agent can understand what they're asking about.`
-    : "Describe what's in this image and transcribe any visible text (e.g. if it's a screenshot), so a support agent can understand what the sender is asking about.";
+    ? `The sender attached this image with the caption: "${caption}". Describe what's in the image and transcribe ALL visible text completely and accurately (preserve paragraph breaks) — this could be a Reading passage, question, or a student's Writing task submission that needs to be analyzed in detail, so a full accurate transcription matters more than a summary.`
+    : "Describe what's in this image and transcribe ALL visible text completely and accurately (preserve paragraph breaks) — this could be a Reading passage, question, or a student's Writing task submission (typed or handwritten) that needs to be analyzed in detail, so a full accurate transcription matters more than a summary.";
 
   const completion = await anthropic.messages.create({
     model: VISION_MODEL,
-    max_tokens: 512,
+    max_tokens: 1024,
     messages: [
       {
         role: "user",
