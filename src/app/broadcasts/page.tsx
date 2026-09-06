@@ -10,6 +10,13 @@ interface BroadcastResult {
   error?: string;
 }
 
+interface BroadcastSummary {
+  sent: number;
+  failed: number;
+  results: BroadcastResult[];
+  skippedOptedOut?: string[];
+}
+
 export default function BroadcastsPage() {
   const [conversations, setConversations] = useState<ConversationWithLastMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,7 +24,7 @@ export default function BroadcastsPage() {
   const [message, setMessage] = useState("");
   const [extraPhonesText, setExtraPhonesText] = useState("");
   const [sending, setSending] = useState(false);
-  const [summary, setSummary] = useState<{ sent: number; failed: number; results: BroadcastResult[] } | null>(null);
+  const [summary, setSummary] = useState<BroadcastSummary | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -29,15 +36,21 @@ export default function BroadcastsPage() {
     void load();
   }, []);
 
+  const eligibleConversations = useMemo(
+    () => conversations.filter((c) => !c.opted_out),
+    [conversations]
+  );
+  const optedOutCount = conversations.length - eligibleConversations.length;
+
   const tagCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const c of conversations) {
+    for (const c of eligibleConversations) {
       for (const tag of c.tags) {
         counts.set(tag, (counts.get(tag) ?? 0) + 1);
       }
     }
     return counts;
-  }, [conversations]);
+  }, [eligibleConversations]);
 
   const existingPhones = useMemo(
     () => new Set(conversations.map((c) => c.phone.replace(/\D/g, ""))),
@@ -57,7 +70,7 @@ export default function BroadcastsPage() {
   const invalidExtraPhoneCount = extraPhones.length - validExtraPhones.length;
   const newExtraCount = validExtraPhones.filter((p) => !existingPhones.has(p)).length;
 
-  const baseCount = selectedTag ? tagCounts.get(selectedTag) ?? 0 : conversations.length;
+  const baseCount = selectedTag ? tagCounts.get(selectedTag) ?? 0 : eligibleConversations.length;
   const recipientCount = baseCount + newExtraCount;
 
   async function handleSend() {
@@ -107,7 +120,7 @@ export default function BroadcastsPage() {
             onChange={(e) => setSelectedTag(e.target.value)}
             className="mb-4 w-full rounded-md border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-700 dark:bg-neutral-900"
           >
-            <option value="">সবাইকে ({conversations.length} জন)</option>
+            <option value="">সবাইকে ({eligibleConversations.length} জন)</option>
             {[...tagCounts.entries()].map(([tag, count]) => (
               <option key={tag} value={tag}>
                 শুধু &quot;{tag}&quot; ট্যাগ ({count} জন)
@@ -145,6 +158,8 @@ export default function BroadcastsPage() {
 
           <p className="mb-3 text-xs text-neutral-500">
             মোট প্রাপক: {recipientCount} জন — এটা একটা approved WhatsApp template দিয়ে পাঠানো হবে।
+            {optedOutCount > 0 &&
+              ` (${optedOutCount} জন broadcast থেকে opt-out করেছেন, তাদের বাদ দেওয়া হয়েছে।)`}
           </p>
 
           <button
@@ -159,6 +174,8 @@ export default function BroadcastsPage() {
             <div className="mt-4 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm dark:border-neutral-800 dark:bg-neutral-900">
               <p className="font-medium text-neutral-800 dark:text-neutral-200">
                 সফল: {summary.sent} জন, ব্যর্থ: {summary.failed} জন
+                {summary.skippedOptedOut && summary.skippedOptedOut.length > 0 &&
+                  `, opt-out করায় বাদ: ${summary.skippedOptedOut.length} জন`}
               </p>
               {summary.failed > 0 && (
                 <ul className="mt-2 space-y-1 text-xs text-red-600 dark:text-red-400">

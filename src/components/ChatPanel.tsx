@@ -9,6 +9,7 @@ export function ChatPanel({
   messages,
   onModeChange,
   onTagsChange,
+  onOptedOutChange,
   onSend,
   onBack,
 }: {
@@ -16,6 +17,7 @@ export function ChatPanel({
   messages: Message[];
   onModeChange: (mode: ConversationMode) => void;
   onTagsChange: (tags: string[]) => void;
+  onOptedOutChange: (optedOut: boolean) => void;
   onSend: (content: string) => Promise<void>;
   onBack: () => void;
 }) {
@@ -89,6 +91,17 @@ export function ChatPanel({
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-12">
+          {conversation.opted_out && (
+            <span className="flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 dark:bg-red-900/40 dark:text-red-300">
+              Broadcast opt-out
+              <button
+                onClick={() => onOptedOutChange(false)}
+                className="text-red-500 underline hover:text-red-800 dark:text-red-300 dark:hover:text-red-100"
+              >
+                পুনরায় চালু করুন
+              </button>
+            </span>
+          )}
           {conversation.tags.map((tag) => (
             <span
               key={tag}

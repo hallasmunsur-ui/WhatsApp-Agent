@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "message is required" }, { status: 400 });
   }
 
-  let query = supabaseServer.from("conversations").select("*");
+  let query = supabaseServer.from("conversations").select("*").eq("opted_out", false);
   if (tag) {
     query = query.contains("tags", [tag]);
   }
@@ -56,9 +56,14 @@ export async function POST(req: NextRequest) {
     ? [...new Set(extraPhonesRaw.map((p) => normalizePhone(String(p))).filter((p) => p.length >= 10))]
     : [];
 
+  const skippedOptedOut: string[] = [];
   for (const phone of extraPhones) {
     if (recipientsByPhone.has(phone)) continue;
     const conversation = await findOrCreateConversation(phone, null);
+    if (conversation.opted_out) {
+      skippedOptedOut.push(phone);
+      continue;
+    }
     recipientsByPhone.set(phone, conversation);
   }
 
@@ -104,5 +109,5 @@ export async function POST(req: NextRequest) {
   const sent = results.filter((r) => r.success).length;
   const failed = results.filter((r) => !r.success);
 
-  return NextResponse.json({ sent, failed: failed.length, results });
+  return NextResponse.json({ sent, failed: failed.length, results, skippedOptedOut });
 }

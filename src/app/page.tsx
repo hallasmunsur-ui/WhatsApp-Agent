@@ -123,6 +123,16 @@ function DashboardContent() {
     loadConversations();
   }
 
+  async function handleOptedOutChange(optedOut: boolean) {
+    if (!selectedId) return;
+    await fetch(`/api/conversations/${selectedId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ opted_out: optedOut }),
+    });
+    loadConversations();
+  }
+
   async function handleSend(content: string) {
     if (!selectedId) return;
     await fetch(`/api/conversations/${selectedId}/send`, {
@@ -159,6 +169,7 @@ function DashboardContent() {
             messages={messages}
             onModeChange={handleModeChange}
             onTagsChange={handleTagsChange}
+            onOptedOutChange={handleOptedOutChange}
             onSend={handleSend}
             onBack={() => setSelectedId(null)}
           />

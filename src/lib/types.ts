@@ -6,6 +6,7 @@ export interface Conversation {
   name: string | null;
   mode: ConversationMode;
   tags: string[];
+  opted_out: boolean;
   updated_at: string;
   created_at: string;
 }

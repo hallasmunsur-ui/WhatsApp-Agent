@@ -17,6 +17,45 @@ interface WhatsAppTextMessage {
   text?: { body: string };
   image?: { id: string; mime_type: string; caption?: string };
   audio?: { id: string; mime_type: string; voice?: boolean };
+  button?: { text: string; payload?: string };
+  interactive?: { button_reply?: { id: string; title: string } };
+}
+
+// Free-text keywords and marketing-template opt-out button replies that
+// mean "stop sending me broadcasts" — checked before anything else so it
+// works regardless of message type.
+const OPT_OUT_KEYWORDS = new Set([
+  "stop",
+  "unsubscribe",
+  "opt out",
+  "optout",
+  "remove me",
+  "আর মেসেজ চাই না",
+  "মেসেজ বন্ধ করুন",
+  "বন্ধ করুন",
+  "আনসাবস্ক্রাইব",
+]);
+
+function normalizeForMatch(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[.,!?।]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getOptOutText(waMessage: WhatsAppTextMessage): string | null {
+  const text =
+    waMessage.type === "text"
+      ? waMessage.text?.body
+      : waMessage.type === "button"
+        ? waMessage.button?.text
+        : waMessage.type === "interactive"
+          ? waMessage.interactive?.button_reply?.title
+          : undefined;
+
+  if (!text || !OPT_OUT_KEYWORDS.has(normalizeForMatch(text))) return null;
+  return text;
 }
 
 interface WhatsAppContact {
@@ -143,10 +182,56 @@ async function resolveMessageContent(waMessage: WhatsAppTextMessage): Promise<Re
   throw new Error(`Unhandled message type: ${waMessage.type}`);
 }
 
+const OPT_OUT_CONFIRMATION =
+  "ঠিক আছে, আপনাকে আর কোনো broadcast/আপডেট মেসেজ পাঠানো হবে না। ধন্যবাদ।";
+
+async function handleOptOut(
+  waMessage: WhatsAppTextMessage,
+  contact: WhatsAppContact | undefined,
+  optOutText: string
+) {
+  const phone = waMessage.from;
+  const name = contact?.profile?.name ?? null;
+  const conversation = await findOrCreateConversation(phone, name);
+
+  const { error: insertError } = await supabaseServer.from("messages").insert({
+    conversation_id: conversation.id,
+    role: "user",
+    content: optOutText,
+    whatsapp_msg_id: waMessage.id,
+  });
+
+  // Unique constraint violation means Meta retried a message we already
+  // stored — ignore and stop, since we've already processed it.
+  if (insertError) {
+    if (insertError.code === "23505") return;
+    throw insertError;
+  }
+
+  await supabaseServer
+    .from("conversations")
+    .update({ opted_out: true, updated_at: new Date().toISOString() })
+    .eq("id", conversation.id);
+
+  await sendWhatsAppMessage(phone, OPT_OUT_CONFIRMATION);
+
+  await supabaseServer.from("messages").insert({
+    conversation_id: conversation.id,
+    role: "assistant",
+    content: OPT_OUT_CONFIRMATION,
+  });
+}
+
 async function handleIncomingMessage(
   waMessage: WhatsAppTextMessage,
   contact: WhatsAppContact | undefined
 ) {
+  const optOutText = getOptOutText(waMessage);
+  if (optOutText) {
+    await handleOptOut(waMessage, contact, optOutText);
+    return;
+  }
+
   if (!SUPPORTED_MESSAGE_TYPES.includes(waMessage.type)) return;
 
   const phone = waMessage.from;

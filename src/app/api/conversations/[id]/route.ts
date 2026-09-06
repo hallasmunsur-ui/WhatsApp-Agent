@@ -9,6 +9,7 @@ export async function PATCH(
   const body = await req.json();
   const mode = body?.mode;
   const tags = body?.tags;
+  const optedOut = body?.opted_out;
 
   if (mode !== undefined && mode !== "agent" && mode !== "human") {
     return NextResponse.json(
@@ -21,12 +22,17 @@ export async function PATCH(
     return NextResponse.json({ error: "tags must be an array" }, { status: 400 });
   }
 
+  if (optedOut !== undefined && typeof optedOut !== "boolean") {
+    return NextResponse.json({ error: "opted_out must be a boolean" }, { status: 400 });
+  }
+
   const update: Record<string, unknown> = {};
   if (mode !== undefined) update.mode = mode;
   if (tags !== undefined) update.tags = tags;
+  if (optedOut !== undefined) update.opted_out = optedOut;
 
   if (Object.keys(update).length === 0) {
-    return NextResponse.json({ error: "mode or tags is required" }, { status: 400 });
+    return NextResponse.json({ error: "mode, tags, or opted_out is required" }, { status: 400 });
   }
 
   const { data, error } = await supabaseServer
